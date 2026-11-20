@@ -1,0 +1,790 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font:14px/1.5 system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>翌日の寄り予想</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Roboto+Mono:wght@400;500;600&display=swap">
+<style>
+/* 縦1列：対象日と夜間の相場 → 押し目の指値（届く確率順）→ BNF式の候補 → 登録した銘柄。保有一覧ページと同じ色・書体。プラス赤・マイナス緑 */
+:root{
+  --bg:#f3f4f7; --panel:#ffffff; --line:#dfe2ea; --fg:#1b2030; --mute:#6b7287;
+  --accent:#2b4fd8; --accent-ink:#ffffff; --up:#d12f2f; --down:#108a4a; --warn:#b26a00; --chip:#e8ebf3; --track:#e3e6ee;
+  --sans:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --num:"Roboto Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1220; --panel:#171b2e; --line:#2a2f47; --fg:#e8eaf3; --mute:#8d93ab;
+  --accent:#6f8cff; --accent-ink:#0f1220; --up:#ff6464; --down:#3ccf7d; --warn:#f0a940; --chip:#22273d; --track:#262b42; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1220; --panel:#171b2e; --line:#2a2f47; --fg:#e8eaf3; --mute:#8d93ab;
+  --accent:#6f8cff; --accent-ink:#0f1220; --up:#ff6464; --down:#3ccf7d; --warn:#f0a940; --chip:#22273d; --track:#262b42; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.5}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 64px;display:grid;gap:14px}
+.n{font-family:var(--num);font-variant-numeric:tabular-nums}
+.up{color:var(--up)} .down{color:var(--down)} .mute{color:var(--mute)} .stale{color:var(--warn)}
+h1{font-size:13px;font-weight:500;color:var(--mute);margin:0;letter-spacing:.04em}
+.head{display:grid;gap:4px}
+.head .big{font-size:26px;font-weight:700;line-height:1.25;text-wrap:balance}
+.stamp{font-size:12px;color:var(--mute);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.mkt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.mkt div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:grid;gap:0}
+.mkt .k{font-size:12px;color:var(--mute)}
+.mkt .v{font-size:18px;font-weight:600}
+.mkt .t{font-size:11px;color:var(--mute)}
+button{font:inherit;cursor:pointer}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:8px;padding:8px 12px}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.btn:focus-visible,input:focus-visible,.row:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.upd{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spin{display:inline-block;width:10px;height:10px;border:2px solid var(--mute);border-top-color:transparent;border-radius:50%;margin-right:6px;vertical-align:-1px}
+@media (prefers-reduced-motion:no-preference){.spin{animation:rot 1s linear infinite}@keyframes rot{to{transform:rotate(360deg)}}}
+section{display:grid;gap:6px}
+section h2{font-size:16px;margin:0;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+section h2 .s{font-size:12px;font-weight:400;color:var(--mute)}
+.list{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.cols{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,.9fr) minmax(0,1fr);gap:0 8px;padding:6px 12px;font-size:11px;color:var(--mute);border-bottom:1px solid var(--line)}
+.cols span:not(:first-child){text-align:right}
+.row{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,.9fr) minmax(0,1fr);gap:0 8px;padding:10px 12px;border-top:1px solid var(--line);width:100%;background:none;border-left:0;border-right:0;border-bottom:0;text-align:left;color:inherit;font:inherit;align-items:center}
+.cols+.row{border-top:0}
+.row .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .cd{font-size:12px;color:var(--mute)}
+.row .r{text-align:right;line-height:1.3}
+.row .r .s{font-size:12px;color:var(--mute)}
+.row .main{font-size:15px;font-weight:600}
+.prob{display:grid;gap:3px;justify-items:end}
+.meter{width:100%;max-width:120px;height:6px;border-radius:3px;background:var(--track);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent)}
+.tag{display:inline-block;font-size:11px;padding:0 6px;border-radius:999px;background:var(--chip);color:var(--mute);margin-left:4px;vertical-align:1px}
+.tag.warn{color:var(--warn)}
+.flag{grid-column:1/-1;font-size:12px;color:var(--warn);margin-top:4px}
+.det{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.det dt{color:var(--mute)} .det dd{margin:0;text-align:right}
+.empty{padding:14px 12px;color:var(--mute);font-size:14px}
+.add{display:flex;gap:8px;flex-wrap:wrap}
+.add input{flex:1;min-width:0;font:inherit;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.msg{font-size:13px;color:var(--warn);min-height:1em}
+.rm{border:0;background:none;color:var(--mute);font-size:12px;padding:4px 0;text-decoration:underline}
+.how{background:var(--panel);border:1px solid var(--line);border-radius:10px;font-size:13px}
+.how summary{padding:8px 12px;cursor:pointer;color:var(--accent);font-weight:500}
+.how summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.how .in{padding:0 12px 10px;display:grid;gap:6px;line-height:1.65}
+.how .in p{margin:0}
+.how dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 10px}
+.how dt{font-weight:700;white-space:nowrap} .how dd{margin:0;min-width:0}
+.how .warn{color:var(--warn)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.toLog{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--fg);text-decoration:none}
+.toLog b{color:var(--accent)} .toLog .s{font-size:12px;color:var(--mute)}
+.back{color:var(--accent);text-decoration:none;font-size:14px}
+.tw{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;-webkit-overflow-scrolling:touch}
+table.t{border-collapse:separate;border-spacing:0;font-size:13px;min-width:100%;white-space:nowrap}
+table.t th,table.t td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+table.t thead th{position:sticky;top:0;background:var(--chip);color:var(--mute);font-weight:500;font-size:11px;z-index:1}
+table.t th:first-child,table.t td:first-child{text-align:left;position:sticky;left:0;background:var(--panel);z-index:2;max-width:9.5em;overflow:hidden;text-overflow:ellipsis}
+table.t thead th:first-child{background:var(--chip);z-index:3}
+table.t tr:last-child td{border-bottom:0}
+table.t .sub{display:block;font-size:11px;color:var(--mute)}
+table.t .grp{border-left:1px solid var(--line)}
+.hit{color:var(--accent);font-weight:700} .miss{color:var(--mute)}
+.ok{color:var(--fg)} .off{color:var(--warn);font-weight:700}
+.runs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.runs button{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:8px;padding:6px 10px;font-size:12px;text-align:left;line-height:1.35}
+.runs button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.runinfo{font-size:12px;color:var(--mute);display:flex;flex-wrap:wrap;gap:4px 12px}
+.legend{font-size:12px;color:var(--mute);line-height:1.6}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--chip);border-radius:10px;padding:4px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:6;box-shadow:0 0 0 8px var(--bg),0 6px 10px -4px rgba(0,0,0,.18)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.seg button{border:0;background:none;color:var(--mute);border-radius:7px;padding:9px 6px;font-weight:700;font-size:14px}
+.seg button[aria-selected="true"]{background:var(--panel);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.seg .c{font-weight:400;font-size:12px;margin-left:4px;color:var(--mute)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.chips button{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:999px;padding:5px 11px;font-size:13px}
+.chips button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.gh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:9px 12px;background:var(--chip);font-size:13px;flex-wrap:wrap}
+.gh b{font-size:14px}
+.gh .r{text-align:right;line-height:1.35}
+.list .gh+.cols{border-top:0}
+.tot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tot div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:grid}
+.tot .k{font-size:12px;color:var(--mute)} .tot .v{font-size:17px;font-weight:600} .tot .t{font-size:11px;color:var(--mute)}
+.xlink{color:var(--accent);text-decoration:none;font-size:13px}
+.chips.sub{position:sticky;top:calc(env(safe-area-inset-top,0px) + 66px);z-index:5;background:var(--bg);padding-block:4px}
+.why{grid-column:1/-1;font-size:12px;color:var(--mute);margin-top:4px}
+.why.sellp{color:var(--fg);line-height:1.55}
+.why.sellp.now{color:var(--warn);font-weight:700}
+.note{font-size:12px;color:var(--mute);display:grid;gap:4px;line-height:1.6}
+.note p{margin:0}
+/* 買い候補の詳細：チャートと決算（保有一覧ページと同じ見た目） */
+.xbox{display:grid;gap:10px;padding:10px 12px 14px;border-top:1px dashed var(--line);background:var(--panel)}
+.xbox h4{margin:0;font-size:14px}
+.xhead{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
+.xseg{display:inline-grid;grid-auto-flow:column;gap:2px;background:var(--chip);border-radius:8px;padding:2px}
+.xseg button{border:0;background:none;color:var(--mute);border-radius:6px;padding:4px 10px;font-size:13px}
+.xseg button[aria-pressed="true"]{background:var(--panel);color:var(--fg);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.chart{position:relative;width:100%;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .readout{position:absolute;top:0;left:0;font-size:12px;line-height:1.35;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);white-space:nowrap;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.chart .slider{width:100%;margin:6px 0 0;accent-color:var(--accent);height:28px}
+.small{font-size:12px;color:var(--mute)}
+.small a,.xbox a{color:var(--accent)}
+.grade{display:inline-block;font-weight:700;font-size:13px;padding:2px 10px;border-radius:999px;background:var(--chip)}
+.grade.good{color:var(--up)} .grade.bad{color:var(--down)}
+.ewhy{margin:0;padding-left:18px;font-size:13px;display:grid;gap:2px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13px;margin:0}
+.kv dt{color:var(--mute)} .kv dd{margin:0;text-align:right}
+.rev{font-size:13px;display:grid;gap:2px;padding:8px 0;border-top:1px dashed var(--line)}
+.xlinks{display:flex;flex-wrap:wrap;gap:8px}
+.xlinks a{color:var(--accent);font-size:13px;text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.nxt{font-size:11px;padding:0 6px;border-radius:999px;background:var(--chip);color:var(--warn);margin-left:4px;vertical-align:1px}
+/* 詳細（小窓）を開いている間だけ、左下に「閉じる」を出す */
+.closeX{position:fixed;left:calc(max(16px,env(safe-area-inset-left,0px)));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:20;border:0;border-radius:999px;padding:11px 18px;font-weight:700;font-size:15px;background:var(--fg);color:var(--bg);box-shadow:0 4px 14px rgba(0,0,0,.28)}
+.closeX:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media (max-width:380px){.mkt .v{font-size:16px}.row .main{font-size:14px}}
+</style>
+
+<div class="wrap" id="mainView">
+  <div class="head">
+    <h1>翌日の寄り予想</h1>
+    <div class="big" id="ttl">予想はまだありません</div>
+    <div class="stamp" id="stamp">「予想を更新」を押すと、今の夜間の値で作ります。</div>
+  </div>
+  <div class="mkt" id="mkt" aria-label="夜間の動き（前営業日の15:30から）"></div>
+  <div class="upd"><div class="btns"><button class="btn pri" id="updBtn" type="button">予想を更新</button><button class="btn" id="logBtn" type="button">予想を記録</button></div><span class="stamp" id="updState"></span></div>
+  <div class="seg" role="tablist" aria-label="表示">
+    <button type="button" role="tab" id="tabHold" aria-selected="false" data-tab="hold">持っている株<span class="c" id="cHold"></span></button>
+    <button type="button" role="tab" id="tabCand" aria-selected="true" data-tab="cand">買い候補<span class="c" id="cCand"></span></button>
+  </div>
+
+  <div id="holdView" hidden>
+    <div class="stamp" id="holdStamp"></div>
+    <div class="tot" id="holdTot"></div>
+    <div class="chips" id="holdChips" role="group" aria-label="システム"></div>
+    <div class="list" id="hold"><div class="empty">予想が届くと、保有一覧ページに登録した持ち株が並びます。</div></div>
+    <details class="how"><summary>数字の見方と注意（持っている株）</summary><div class="in">
+      <dl>
+        <dt>持ち株</dt><dd>保有一覧ページ（損益ページ）に「保有中」で登録した株。システムの分け方も同じ。株数・取得値を直すのは保有一覧ページで</dd>
+        <dt>寄りの予想</dt><dd>翌日の寄りが、基準の終値から何%動くか。下の円はその値段</dd>
+        <dt>取得値から</dt><dd>寄りの予想の値段で売った場合の損益（取得値に対する%）。下は取得値</dd>
+        <dt>見込み損益</dt><dd>寄りの予想の値段での含み損益（株数×（寄りの予想−取得値））。「終値から」は、終値の時と比べて寄りで何円増減するか</dd>
+        <dt>高値・安値の目安</dt><dd>詳細に、取得値からの%も並べています。見方は買い候補と同じ（半々・4回に1回）</dd>
+      </dl>
+      <p class="warn">持ち株は、この画面の更新（朝・夜の定時、「予想を更新」「予想を記録」）のたびに保有一覧ページから読み直します（上に時刻を表示）。「追加した銘柄だけ更新」では読み直しません。</p>
+      <p class="warn">寄りの予想は、夜間の日経先物と半導体ETFの動きだけから出しています。決算などその銘柄だけの材料は入りません（PTSでその銘柄だけ大きく動いた時は注意を出します）。</p>
+    </div></details>
+  </div>
+
+  <div id="candView">
+  <a class="toLog" href="#log"><span><b>予想の記録と答え合わせ</b><br><span class="s">定時（朝5:47・夜21:35）と「予想を記録」の分</span></span><span aria-hidden="true">›</span></a>
+
+  <div class="chips sub" id="subTabs" role="tablist" aria-label="システム">
+    <button type="button" role="tab" data-sub="osh" aria-pressed="true">押し目 <span class="n" id="cOsh"></span></button>
+    <button type="button" role="tab" data-sub="bnf" aria-pressed="false">BNF式 <span class="n" id="cBnf"></span></button>
+    <button type="button" role="tab" data-sub="iki" aria-pressed="false">勢い <span class="n" id="cIki"></span></button>
+    <button type="button" role="tab" data-sub="ikib" aria-pressed="false">勢いB <span class="n" id="cIkib"></span></button>
+    <button type="button" role="tab" data-sub="wat" aria-pressed="false">気になる銘柄 <span class="n" id="cWat"></span></button>
+  </div>
+
+  <section aria-labelledby="h-osh" id="secOsh">
+    <h2 id="h-osh">押し目：明日の指値 <span class="s">届く確率の高い順</span></h2>
+    <div class="stamp" id="oshInfo"></div>
+    <div class="list" id="osh"><div class="empty">予想が届くと、出している指値が並びます。</div></div>
+    <h2>押し目：合図は出たが買わない候補 <span class="s">理由つき・期限まで</span></h2>
+    <div class="list" id="oshSkip"><div class="empty">なし</div></div>
+    <details class="how"><summary>数字の見方と注意（押し目）</summary><div class="in">
+      <dl>
+        <dt>寄りの予想</dt><dd>翌日の寄りが、基準の終値（最新の終値）から何%動くか。下の円はその値段</dd>
+        <dt>指値に届く確率</dt><dd>今の指値を出しておいた場合に、<b>翌営業日1日のうちに</b>安値がその値段まで下がる確率</dd>
+        <dt>指値（終値から）</dt><dd>指値が基準の終値から何%下か</dd>
+        <dt>指値（合図の日から）</dt><dd>指値が合図の日の終値から何%下か。決まりどおり約−5%</dd>
+        <dt>残りN日</dt><dd>指値が有効な残りの営業日（5営業日で取り消し）</dd>
+        <dt>候補の出どころ</dt><dd>押し目の引け後の判定（「システムの状態」の押し目と同じ記録）。買い候補＝指値中、買わない候補＝期限内の見送り・取消（AI関連株の上限、決算で下げた など）</dd>
+      </dl>
+      <p class="warn">確率は翌日1日分だけです。5営業日全体で届く確率はこれより高くなります。</p>
+      <p>前日の上げ下げが±3%以内の候補は、安値が予想ほど下がらないことが多いので、確率を下げて直しています（直す前は−5%の指値で予想16%・実際8%→直した後7%）。浅い指値（−3%前後）では少し低めに出ます。</p>
+      <p class="warn">前日に3%より大きく動いた銘柄は直していません（直すとかえってずれたため）。確率が低い所（10〜30%）はやや高めに出ます。</p>
+    </div></details>
+  </section>
+
+  <section aria-labelledby="h-bnf" id="secBnf">
+    <h2 id="h-bnf">BNF式：明日の指値 <span class="s">届く確率の高い順</span></h2>
+    <div class="stamp" id="bnfInfo"></div>
+    <div class="list" id="bnf"><div class="empty">予想が届くと、候補が並びます。</div></div>
+    <h2>BNF式：合図は出たが買わない候補 <span class="s">理由つき</span></h2>
+    <div class="list" id="bnfSkip"><div class="empty">なし</div></div>
+    <details class="how"><summary>数字の見方と注意（BNF式）</summary><div class="in">
+      <dl>
+        <dt>候補の出どころ</dt><dd>BNF式の引け後の判定（明日の注文）と同じ決まり：基準の終値が25日平均から−20%以下・売買代金1億円以上、BNF式で持っている株は除く</dd>
+        <dt>指値</dt><dd>基準の終値から、合図の数で決まる深さ（10以上−6%／6以上−3%／それ未満−1%）。2営業日有効</dd>
+        <dt>指値に届く確率</dt><dd>その指値に<b>翌営業日1日のうちに</b>届く確率</dd>
+        <dt>買わない候補</dt><dd>AI関連株が上限（5銘柄）を超える分。自分の判断で買う時の参考に、確率も出しています</dd>
+      </dl>
+      <p class="warn">BNF式の合図（終値が25日線から−20%以下）は終値で決まります。安値まで下がっても、終値で合図が消えることがあります。</p>
+    </div></details>
+  </section>
+
+  <section aria-labelledby="h-iki" id="secIki">
+    <h2 id="h-iki">勢い：明日の朝に買う <span class="s">寄り成行</span></h2>
+    <div class="stamp" id="ikiInfo"></div>
+    <div class="list" id="ikiBuy"><div class="empty">予想が届くと並びます。</div></div>
+    <h2>勢い：明日の朝に売る <span class="s">寄り成行・全株</span></h2>
+    <div class="list" id="ikiSell"><div class="empty">なし</div></div>
+    <h2>勢い：持ち続ける株 <span class="s">記録上の持ち株・売り基準つき</span></h2>
+    <div class="list" id="ikiHold"><div class="empty">なし</div></div>
+  </section>
+
+  <section aria-labelledby="h-ikib" id="secIkib">
+    <div class="stamp" id="ikibInfo"></div>
+    <div id="ikibTempBox">
+    <h2>勢いB：暫定の5社 <span class="s">今日の終値で入れ替えたら買う株</span></h2>
+    <div class="list" id="ikibTemp"><div class="empty">なし</div></div>
+    </div>
+    <h2 id="h-ikib">勢いB：明日の朝に買う <span class="s">寄り成行</span></h2>
+    <div class="list" id="ikibBuy"><div class="empty">予想が届くと並びます。</div></div>
+    <h2>勢いB：明日の朝に売る <span class="s">寄り成行・全株</span></h2>
+    <div class="list" id="ikibSell"><div class="empty">なし</div></div>
+    <h2>勢いB：持ち続ける株 <span class="s">記録上の持ち株・売り基準つき</span></h2>
+    <div class="list" id="ikibHold"><div class="empty">なし</div></div>
+  </section>
+
+  <details class="how" id="ikiHow"><summary>数字の見方と注意（勢い・勢いB）</summary><div class="in">
+    <dl>
+      <dt>候補の出どころ</dt><dd>勢い・勢いBの引け後の判定（通知の「明日の朝 買う・売る」と同じ記録）。売り買いは入れ替えの日（月2回）と、一番高い終値から−15%の売りの時だけ出ます</dd>
+      <dt>寄りの予想</dt><dd>翌日の寄りが、基準の終値から何%動くか。寄り成行なので、<b>ほぼこの値段で買う・売る</b>ことになります。下の円はその値段</dd>
+      <dt>安値の目安</dt><dd>翌日1日のうちに、安値がそこまで下がる確率が半々・4回に1回の値段（寄りで買った後、その日にどこまで下がりうるか）</dd>
+      <dt>売る株の「買値から」</dt><dd>寄りの予想の値段で売った時の、買値からの損益</dd>
+      <dt>持ち続ける株</dt><dd>システムの記録上の持ち株（実際の持ち株は「持っている株」タブ）。売り基準は一番高い終値の−15%で、終値がそこ以下なら翌朝の寄りで売る</dd>
+      <dt>勢いBの暫定</dt><dd>本番（11/16の入れ替えから）までの目安。今日の終値で順位を出し、同じ業種は2社まで・上位から5社。毎日の順位で入れ替わります。記録上の持ち株ができたら出なくなります</dd>
+    </dl>
+    <p class="warn">勢い・勢いBは決まりどおり寄り成行で買う・売るシステムです。予想を見て指値に変えると、検証した成績とは別物になります（押し目の検証では、予想で指値を動かしても儲けは増えませんでした）。</p>
+    <p class="warn">寄りで大きく下げて始まりそうな時（PTSの注意が出た時など）は、ニュースや決算を確かめてください。</p>
+  </div></details>
+
+  </div>
+  <div id="candView2">
+  <section aria-labelledby="h-w" id="secWat">
+    <h2 id="h-w">気になる銘柄</h2>
+    <form class="add" id="addForm">
+      <input id="addCode" inputmode="text" autocomplete="off" maxlength="4" placeholder="銘柄コード（例 7203）" aria-label="銘柄コード">
+      <button class="btn" type="submit">追加</button>
+    </form>
+    <div class="msg" id="addMsg"></div>
+    <div class="upd"><button class="btn" id="watBtn" type="button">追加した銘柄だけ更新</button><span class="stamp" id="watState"></span></div>
+    <div class="list" id="wat"><div class="empty">コードを追加すると、次の更新から予想が入ります。</div></div>
+    <details class="how"><summary>数字の見方（気になる銘柄）</summary><div class="in">
+      <p>見方はBNF式と同じです（寄りの予想、安値の目安＝半々、4回に1回）。追加した銘柄は次の更新から予想が入ります。</p>
+      <p>「追加した銘柄だけ更新」は、この欄の銘柄だけを今の夜間の値で計算し直します。押し目・BNF式は前の予想のまま残ります（記録もしません）。そのため、この欄と上の欄で予想の時刻が違うことがあります。</p>
+      <p class="warn">TOPIX500に入らない小さな銘柄は、先物との連動が弱く、外れ方が大きくなりやすいです。</p>
+    </div></details>
+  </section>
+
+  </div>
+  <details class="how" open><summary>全体の注意（予想の作り方・当たり具合・詳細の項目）</summary><div class="in">
+    <dl>
+      <dt>上の3つの枠</dt><dd>前営業日の15:30から今までの、日経先物・米国の半導体ETF・ドル円の動き。小さな数字は値段の時刻</dd>
+      <dt>寄りの幅（半々）</dt><dd>寄りがこの範囲に入る確率が50%</dd>
+      <dt>高値の目安</dt><dd>翌日の高値がそこまで上がる確率が半々の値段（一覧の寄りの下）。詳細の「4回に1回」は、そこより上がるのが25%程度の値段。候補の銘柄では当たり具合は良いが、候補でない銘柄（気になる銘柄など）は高めに出る</dd>
+      <dt>夜間PTS</dt><dd>引け後のPTS（ジャパンネクスト）の値段と時刻</dd>
+      <dt>この銘柄だけの動き</dt><dd>PTSの動きから、その時刻までの先物の動きで説明できる分を引いたもの。±3%以上で注意を出す（決算・ニュースの可能性）</dd>
+      <dt>ADR換算</dt><dd>米国で売買されているその会社の株を円に直すと、終値から何%か。米国での1日の売買が50万ドル未満のものは、値段が古い・飛ぶので出しません</dd>
+      <dt>先物が1%動くと</dt><dd>その銘柄が過去1年で平均何%動いたか（半導体ETFも同じ）</dd>
+      <dt>基準の終値</dt><dd>予想の起点になる最新の終値。休みの日は前の営業日の終値で、そこから今までの動きが全部入る</dd>
+    </dl>
+    <p><b>予想の作り方</b>：前営業日15:30から今までの日経先物（CME）と米国の半導体ETFの動きに、銘柄ごとの効き方（直近250営業日）を掛けたもの。</p>
+    <p><b>当たり具合</b>（2025年1月〜2026年10月、後出しなし）：25日平均−10%以下の銘柄で、寄りの外れ方は平均1.5%。前日終値のままと考えた場合は2.7%。</p>
+    <p><b>指値に届く確率</b>：寄りの予想と、その銘柄の最近の値動きの大きさから出した目安。押し目の候補に近い銘柄で、予想30〜50%の時に実際は43%など、おおむね合っています。</p>
+    <p><b>PTS・ADR</b>：予想には混ぜていません（過去のデータが無く確かめられないため）。PTSでその銘柄だけ大きく動いた時は注意を出します。PTSは記録して、後で当たり具合を確かめます。</p>
+    <p>日中の値動き（終値）はほとんど予想できません。予想は寄りと安値の目安だけです。</p>
+    <p class="warn">予想を見て指値を動かすと儲けが増えるかは、まだ確かめていません。</p>
+    <p class="warn">朝の更新は5:47に始まるので、冬は米国市場の最後の15分（6:00の引け）が入りません。自動の起動が遅れて6時に間に合わない日もあります。その時は「予想を更新」を押してください。</p>
+    <p class="warn">PTSはYahoo!ファイナンスのページから読んでいます。向こうの作りが変わると取れなくなります。</p>
+  </div></details>
+</div>
+
+<button type="button" class="closeX" id="closeX" hidden aria-label="開いている詳細を閉じる">✕ 閉じる</button>
+<div class="wrap" id="logView" hidden>
+  <a class="back" href="#">‹ 予想に戻る</a>
+  <div class="head"><h1>予想の記録と答え合わせ</h1><div class="big">答え合わせ</div><div class="stamp" id="evStamp"></div></div>
+  <div class="tw"><table class="t" id="evTable"></table></div>
+  <div class="legend">寄りの外れ：予想と実際の寄りの差（平均）。前日終値のまま：何も予想せず「前日の終値で寄る」と考えた時の差。これより小さければ予想が役に立っている。<br>
+  届いた割合：安値・高値の「半々」は50%、「4回に1回」は25%に近いほど正確。10ポイント以上ずれたら<b class="off">色付き</b>。</div>
+  <div class="head"><div class="big">記録</div><div class="stamp">新しい順。選ぶとその時の予想が出ます。答え合わせが済んだ日は実際の値段も並びます。</div></div>
+  <div class="runs" id="runList" role="group" aria-label="記録の一覧"></div>
+  <div class="runinfo" id="runInfo"></div>
+  <div class="tw"><table class="t" id="runTable"></table></div>
+  <div class="legend">各欄の上が値段、下が基準の終値からの%。答え合わせ済みの日は、実際の値段と<b class="hit">●届いた</b>／<span class="miss">○届かず</span>を表示。</div>
+</div>
+
+<!-- ミラーページ用（src/mirror_build.py が差し込む）：保存先（db）の代わりに暗号化した中身を読む。見るだけ。 -->
+<style>
+#updBtn,#logBtn,#watBtn,#addForm,#addBtn,#dEdit,#dAdd,[data-rm],#updState,#reqState{display:none!important}
+.mbar{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:12px;padding:6px max(16px,env(safe-area-inset-right,0px)) 6px max(16px,env(safe-area-inset-left,0px));background:#fff4d6;color:#5a4300;border-bottom:1px solid #ecd9a0}
+.mbar a,.mbar button{color:inherit;font:inherit;text-decoration:underline;background:none;border:0;padding:0;cursor:pointer}
+.mlock{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:#f5f3ee;color:#1d1b16;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+.mlock form{width:min(340px,100%);display:grid;gap:12px}
+.mlock h1{font-size:18px;margin:0}
+.mlock p{margin:0;font-size:13px;color:#5f5a50}
+.mlock input[type=password]{font:inherit;font-size:16px;padding:10px 12px;border:1px solid #c9c3b6;border-radius:8px;background:#fff;color:inherit}
+.mlock button{font:inherit;font-weight:600;padding:10px;border:0;border-radius:8px;background:#2f5d50;color:#fff}
+.mlock label{display:flex;gap:6px;align-items:center;font-size:13px}
+.mlock .err{color:#b3261e;min-height:1.2em}
+@media (prefers-color-scheme:dark){
+ .mbar{background:#3a3016;color:#f1dfa8;border-color:#5a4a1f}
+ .mlock{background:#16150f;color:#ece8de}.mlock p{color:#a9a395}
+ .mlock input[type=password]{background:#24221b;border-color:#4a463b}
+ .mlock button{background:#4f8d7b}.mlock .err{color:#ff8a80}
+}
+</style>
+<div class="mlock" id="mLock">
+  <form id="mForm" autocomplete="on">
+    <h1>株のページ（ミラー）</h1>
+    <p>見るだけのページです。パスワードを入れてください。</p>
+    <input type="text" name="username" value="kabu-mirror" autocomplete="username" hidden>
+    <input type="password" id="mPw" autocomplete="current-password" aria-label="パスワード" required>
+    <label><input type="checkbox" id="mKeep" checked>この端末で覚えておく</label>
+    <button type="submit" id="mGo">開く</button>
+    <div class="err" id="mErr" role="alert"></div>
+  </form>
+</div>
+<script>
+(function(){
+  let ok; const ready = new Promise(r => ok = r);
+  const no = () => Promise.reject({code: "read_only", message: "ミラーは見るだけです（変更は claude.ai のページで）"});
+  function mkdb(D){
+    const snap = v => ({data: () => v, exists: v != null});
+    const doc = p => ({onSnapshot(cb){cb(snap(D.docs[p])); return () => {}}, get: async () => snap(D.docs[p]), set: no, update: no, delete: no});
+    const coll = n => { const q = {
+      onSnapshot(cb){cb({docs: (D.cols[n] || []).map(x => ({id: x.id, data: () => x.data}))}); return () => {}},
+      get: async () => ({docs: (D.cols[n] || []).map(x => ({id: x.id, data: () => x.data}))}),
+      orderBy(){return q}, limit(){return q}, where(){return q}, doc: id => doc(n + "/" + id), add: no}; return q };
+    return {doc, collection: coll};
+  }
+  window.claude = {use: async n => n === "db" ? mkdb(await ready) : null};
+
+  const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  async function open(pw){
+    const r = await fetch("data.enc.json?t=" + Date.now(), {cache: "no-store"});
+    if (!r.ok) throw new Error("データを読めませんでした（" + r.status + "）");
+    const E = await r.json();
+    const km = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey({name: "PBKDF2", salt: b64(E.salt), iterations: E.iter, hash: "SHA-256"}, km, {name: "AES-GCM", length: 256}, false, ["decrypt"]);
+    let pt;
+    try { pt = await crypto.subtle.decrypt({name: "AES-GCM", iv: b64(E.iv)}, key, b64(E.ct)) }
+    catch { const e = new Error("パスワードが違います"); e.pw = true; throw e }
+    const txt = await new Response(new Blob([pt]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+    return JSON.parse(txt);
+  }
+  function bar(D){
+    const at = new Date(D.builtAt);
+    const p = n => String(n).padStart(2, "0");
+    const el = document.createElement("div"); el.className = "mbar";
+    el.innerHTML = `<span><b>ミラー（見るだけ）</b>　データ作成 ${at.getMonth()+1}/${at.getDate()} ${p(at.getHours())}:${p(at.getMinutes())}</span>
+      <button type="button" id="mReload">最新を読み込む</button>
+      <a href="https://claude.ai/artifact/HUQQxhTyXUQLbqo2YyYpuf" target="_blank" rel="noopener">claude.ai のページ</a>
+      <button type="button" id="mOut">パスワードを忘れさせる</button>`;
+    document.body.prepend(el);
+    el.querySelector("#mReload").onclick = () => location.reload();
+    el.querySelector("#mOut").onclick = () => { try{localStorage.removeItem("mpw")}catch{} location.reload() };
+  }
+  async function go(pw, keep){
+    const err = document.getElementById("mErr"), btn = document.getElementById("mGo");
+    btn.disabled = true; err.textContent = "開いています…";
+    try {
+      const D = await open(pw);
+      try { keep ? localStorage.setItem("mpw", pw) : localStorage.removeItem("mpw") } catch {}
+      document.getElementById("mLock").hidden = true; bar(D); ok(D);
+    } catch (e) {
+      err.textContent = e.message || "開けませんでした";
+      if (e.pw) try { localStorage.removeItem("mpw") } catch {}
+    } finally { btn.disabled = false }
+  }
+  document.getElementById("mForm").addEventListener("submit", e => { e.preventDefault(); go(document.getElementById("mPw").value, document.getElementById("mKeep").checked) });
+  let saved = null; try { saved = localStorage.getItem("mpw") } catch {}
+  if (saved) go(saved, true); else setTimeout(() => document.getElementById("mPw").focus(), 50);
+})();
+</script>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const cls=v=>v>0?"up":v<0?"down":"";
+const pc=(v,d=1)=>v==null||isNaN(v)?"—":(v>0?"+":"")+Number(v).toFixed(d)+"%";
+const yen=v=>v==null?"—":Number(v).toLocaleString("ja-JP",{maximumFractionDigits:1})+"円";
+const WD="日月火水木金土";
+const at=(r,v)=>v==null||r.close==null?"—":`${pc(v)}（${yen(Math.round(r.close*(1+v/100)))}）`;
+const yp=(r,v)=>v==null||r.close==null?"—":yen(Math.round(r.close*(1+v/100)));
+let db=null, pred=null, watch=[], req={}, open=new Set();
+const TRIG_UPD="trig_01SkwR6MJ5EJR4Ae1xEKfW4Y", TRIG_LOG="trig_01RfQKQHwanNasFshKAWM9xA", TRIG_WAT="trig_01FmCrHu4zN1c2ay81mcYyrT";
+
+function dayLabel(s){const d=new Date(s+"T00:00:00+09:00");return `${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）`}
+
+function head(){
+  if(!pred){return}
+  $("#ttl").textContent=`${dayLabel(pred.target)}の寄り`;
+  const age=(Date.now()-Date.parse(pred.asOf.replace(" ","T")+":00+09:00"))/36e5;
+  $("#stamp").innerHTML=`<span>${esc(pred.asOf.slice(5).replace("-","/"))} 時点の予想</span><span>基準：${esc(pred.base.slice(5).replace("-","/"))}の終値</span>`+(age>16?`<span class="stale">古い予想です。更新してください</span>`:"");
+  $("#mkt").innerHTML=Object.entries(pred.market||{}).map(([k,m])=>`<div><span class="k">${esc(k)}</span><span class="v n ${cls(m.pct)}">${pc(m.pct,2)}</span><span class="t n">${esc(m.at||"")}</span></div>`).join("");
+}
+
+function det(r){
+  const a=[["終値（基準）",yen(r.close)],["25日平均から",pc(r.dev)],["寄りの予想",at(r,r.p)],["寄りの幅（半々）",`${at(r,r.o_lo)}〜<br>${at(r,r.o_hi)}`],["高値の目安（半々）",at(r,r.h_med)],["高値の目安（4回に1回はここより上）",at(r,r.h_q75)],["安値の目安（半々）",at(r,r.l_med)],["安値の目安（4回に1回はここより下）",at(r,r.l_q25)]];
+  if(r.limit)a.push(["指値",`${yen(r.limit)}`],["指値（終値から）",`${pc(r.limit_pct)}（終値${yen(r.close)}）`]);
+  if(r.sig_close)a.push(["合図の日の終値",`${yen(r.sig_close)}（${esc((r.sig_date||"").slice(5).replace("-","/"))}）`],["指値（合図の日から）",`${pc(r.sig_pct)}（終値${yen(r.sig_close)}）`]);
+  if(r.pts)a.push(["夜間PTS",`${yen(r.pts.price)}（${pc(r.pts.pct)}・${esc(r.pts.time)}）`],["PTSのうち、この銘柄だけの動き",pc(r.pts.own)]);
+  else a.push(["夜間PTS","引け後の売買なし"]);
+  a.push(["ADR換算",!r.adr?"なし":r.adr.thin?`売買が少なく使えない（${esc(r.adr.ticker)}・${Number(r.adr.vol||0).toLocaleString()}株）`:`${pc(r.adr.pct)}（${esc(r.adr.ticker)}・${esc(r.adr.at.slice(5).replace("-","/"))}）`]);
+  a.push(["先物が1%動くと",`${r.b_niy>=0?"":"−"}${Math.abs(r.b_niy).toFixed(2)}%（半導体ETF 1%で ${r.b_sox.toFixed(2)}%）`]);
+  return `<dl class="det">${a.map(([k,v])=>`<dt>${k}</dt><dd class="n">${v}</dd>`).join("")}</dl>`;
+}
+
+function row(r,mode){
+  if(r.err)return `<div class="row"><div><div class="nm">${esc(r.name||r.code)}</div><div class="cd">${esc(r.code)}</div></div><div class="r s mute" style="grid-column:2/-1">${esc(r.err)}</div></div>`;
+  const id=mode+r.code, isOpen=open.has(id);
+  const right=r.limit!=null
+    ?`<div class="r prob"><span class="main n">${r.prob}%</span><span class="meter" aria-hidden="true"><i style="width:${Math.max(2,r.prob)}%"></i></span><span class="s n">指値${yen(r.limit)}<br>終値から${pc(r.limit_pct)}${r.sig_pct!=null?`<br>合図の日から${pc(r.sig_pct)}`:""}</span></div>`
+    :`<div class="r"><div class="main n ${cls(r.l_med)}">${pc(r.l_med)}</div><div class="s n">${yp(r,r.l_med)}</div><div class="s n">4回に1回 ${pc(r.l_q25)}<br>${yp(r,r.l_q25)}</div></div>`;
+  const tags=(r.note?`<span class="tag">${esc(r.note)}</span>`:"")+(r.pts&&Math.abs(r.pts.own)>=3?`<span class="tag warn">PTS</span>`:"")+earnTag(r.code);
+  return `<button class="row" type="button" data-id="${esc(id)}" aria-expanded="${isOpen}">
+    <div><div class="nm">${esc(r.name||r.code)}</div><div class="cd">${esc(r.code)}${tags}</div></div>
+    <div class="r"><div class="main n ${cls(r.p)}">${pc(r.p)}</div><div class="s n">${yen(Math.round(r.close*(1+r.p/100)))}</div>${r.h_med!=null?`<div class="s n">高値 ${pc(r.h_med)}<br>${yp(r,r.h_med)}</div>`:""}</div>
+    ${right}
+    ${r.why?`<div class="why">✖ ${esc(r.why)}</div>`:""}
+    ${r.memo?`<div class="why">${esc(r.memo)}${r.c_p!=null&&r.buy_price?`｜寄りの予想で買値から <span class="${cls(r.c_p)}">${pc(r.c_p)}</span>`:""}</div>`:""}
+    ${r.flag?`<div class="flag">${esc(r.flag)}</div>`:""}
+    ${isOpen?det(r)+(mode==="wat"?`<span class="rm" role="button" tabindex="0" data-rm="${esc(r.code)}">この銘柄を外す</span>`:""):""}
+  </button>${isOpen?`<div class="xbox" data-x="${esc(r.code)}" data-lim="${r.limit??""}"></div>`:""}`;
+}
+
+// ---- 買い候補の詳細：チャート（5日・1か月・1年）と決算。データは meta/extra（src/nextday_extra.py） ----
+let extra=null, xspan="m1";
+try{xspan=localStorage.getItem("nd_xspan")||"m1"}catch{}
+const md2=d=>d?`${+d.slice(5,7)}/${+d.slice(8,10)}`:"";
+const rt=v=>(v==null||!isFinite(v))?"—":(v>0?"+":"")+(v*100).toFixed(1)+"%";
+const oku=v=>{if(v==null)return "—";const a=Math.abs(v);return (v<0?"−":"")+(a>=1e12?(a/1e12).toFixed(2)+"兆":a>=1e8?(a/1e8).toLocaleString("ja-JP",{maximumFractionDigits:a>=1e10?0:1})+"億":(a/1e6).toLocaleString("ja-JP",{maximumFractionDigits:0})+"百万")+"円"};
+const jstToday=()=>new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
+const daysTo=d=>Math.round((Date.parse(d)-Date.parse(jstToday()))/864e5);
+function earnTag(code){const N=extra?.info?.[code]?.next;if(!N)return "";const n=daysTo(N.date);return n>=0&&n<=14?`<span class="nxt">決算${n===0?"今日":n===1?"明日":md2(N.date)}</span>`:""}
+function xpts(code,span){
+  if(!extra)return [];
+  if(span==="d5"){const c=extra.d5?.c?.[code]||[];return c.map((v,i)=>[extra.d5.t[i],v]).filter(x=>x[1]!=null)}
+  const c=extra.y1?.c?.[code]||[];let p=c.map((v,i)=>[extra.y1.d[i],v]).filter(x=>x[1]!=null);
+  if(span==="m1")p=p.slice(-21);
+  return p.map(([d,v])=>[span==="m1"?d.slice(3):d,v]);
+}
+const xsel={};
+function drawChart(box,pts,lim,key){
+  if(!pts||pts.length<2){box.innerHTML='<div class="small">チャートのデータがありません。次の更新で入ります。</div>';return}
+  const f1=v=>Number(v).toLocaleString("ja-JP",{maximumFractionDigits:1});
+  const W=340,H=210,L=4,R=46,T=48,B=22;
+  const ys=pts.map(x=>x[1]); let lo=Math.min(...ys), hi=Math.max(...ys);
+  const showL=lim>0&&lim>=lo-(hi-lo)*.6&&lim<=hi+(hi-lo)*.6;
+  if(showL){lo=Math.min(lo,lim);hi=Math.max(hi,lim)}
+  const pad=(hi-lo)*.08||hi*.01; lo-=pad; hi+=pad;
+  const X=i=>L+(W-L-R)*i/(pts.length-1), Y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo));
+  const line=pts.map((p,i)=>`${i?"L":"M"}${X(i).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("");
+  const area=line+`L${X(pts.length-1).toFixed(1)},${H-B}L${X(0).toFixed(1)},${H-B}Z`;
+  const ticks=[0,.5,1].map(f=>lo+pad+(hi-lo-2*pad)*f);
+  const first=pts[0][1], last=pts.at(-1)[1], up=last>=first;
+  const lab=[0,Math.floor((pts.length-1)/2),pts.length-1];
+  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="終値の推移">
+    ${ticks.map(v=>`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${W-R+6}" y="${Y(v)+4}" font-size="10" fill="var(--mute)" font-family="var(--num)">${f1(v)}</text>`).join("")}
+    ${showL?`<line x1="${L}" x2="${W-R}" y1="${Y(lim)}" y2="${Y(lim)}" stroke="var(--accent)" stroke-dasharray="4 3" stroke-width="1"/><text x="${L+2}" y="${Y(lim)-4}" font-size="10" fill="var(--accent)">指値 ${f1(lim)}</text>`:""}
+    <path d="${area}" fill="${up?"var(--up)":"var(--down)"}" opacity=".08"/>
+    <path d="${line}" fill="none" stroke="${up?"var(--up)":"var(--down)"}" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="${X(pts.length-1)}" cy="${Y(last)}" r="3.5" fill="${up?"var(--up)":"var(--down)"}"/>
+    ${lab.map((i,k)=>`<text x="${X(i)}" y="${H-6}" font-size="10" fill="var(--mute)" text-anchor="${k===0?"start":k===2?"end":"middle"}">${esc(pts[i][0])}</text>`).join("")}
+    <line class="cross" x1="0" x2="0" y1="${T}" y2="${H-B}" stroke="var(--fg)" stroke-width="1" opacity="0"/>
+    <circle class="dot" r="4" fill="var(--panel)" stroke="var(--fg)" stroke-width="2" opacity="0"/>
+  </svg><div class="readout n"></div><input type="range" class="slider" min="0" max="${pts.length-1}" step="1" aria-label="見る時点を動かす">`;
+  const svg=box.querySelector("svg"), cr=svg.querySelector(".cross"), dot=svg.querySelector(".dot"), ro=box.querySelector(".readout"), sl=box.querySelector(".slider");
+  const set=i=>{i=Math.max(0,Math.min(pts.length-1,i|0)); xsel[key]=pts[i][0];
+    cr.setAttribute("x1",X(i));cr.setAttribute("x2",X(i));cr.setAttribute("opacity",".35");
+    dot.setAttribute("cx",X(i));dot.setAttribute("cy",Y(pts[i][1]));dot.setAttribute("opacity","1");
+    const v=pts[i][1], a=v/first-1, c=lim>0?v/lim-1:null;
+    ro.innerHTML=`<div><b>${esc(pts[i][0])}</b>　${f1(v)}円</div><div>はじめ比 <span class="${cls(a)}">${rt(a)}</span>${c!=null?`　指値比 <span class="${cls(c)}">${rt(c)}</span>`:""}</div>`;
+    const bw=svg.getBoundingClientRect().width||W, rw=ro.offsetWidth||150, cx=X(i)/W*bw;
+    ro.style.left=Math.min(Math.max(cx-rw/2,0),bw-rw)+"px"; sl.value=i};
+  const fromX=e=>{const r=svg.getBoundingClientRect();const x=(e.clientX-r.left)/r.width*W;set(Math.round((x-L)/(W-L-R)*(pts.length-1)))};
+  svg.addEventListener("pointerdown",e=>{e.preventDefault();fromX(e)});
+  svg.addEventListener("pointermove",e=>{if(e.pointerType==="mouse"||e.buttons)fromX(e)});
+  sl.addEventListener("input",()=>set(+sl.value));
+  const keep=xsel[key]?pts.findIndex(x=>x[0]===xsel[key]):-1;
+  set(keep>=0?keep:pts.length-1);
+}
+function earnHTML(code){
+  const I=extra?.info?.[code];
+  if(!I)return `<div class="small">${extra?"決算の情報はまだありません（次の更新で入ります）。":"決算とチャートは次の更新で入ります。"}</div>`;
+  let h="";
+  const N=I.next;
+  h+=`<dl class="kv"><dt>次の決算</dt><dd>${N?`${esc(N.date.replaceAll("-","/"))}${N.time?" "+esc(N.time):""}${(()=>{const n=daysTo(N.date);return n===0?"（今日）":n>0?`（あと${n}日）`:""})()}`:"未発表（今期の分は発表済み）"}</dd></dl>`;
+  const L=I.latest;
+  if(L){
+    const g=L.label?`<span class="grade ${L.score>0?"good":L.score<0?"bad":""}">${esc(L.label)}</span>`:"";
+    h+=`<div class="xhead"><h4>直近の決算（${md2(L.date)}）</h4>${g}</div><div class="small">${L.url?`<a href="${esc(L.url)}">${esc(L.title)}</a>`:esc(L.title)}</div>`;
+    if(L.nodata){h+=`<div class="small">数値は取れませんでした（TDnetの公開期間が過ぎた資料です）。</div>`}
+    else{
+      const sy=L.sales&&L.sales.cur!=null&&L.sales.prior>0?L.sales.cur/L.sales.prior-1:null;
+      const p0=v=>rt(v).replace(/\.\d+%/,"%");
+      h+=`<dl class="kv n">
+        ${L.sales&&L.sales.cur!=null?`<dt>売上（累計）</dt><dd>${oku(L.sales.cur)}${sy!=null?` <span class="${cls(sy)}">${p0(sy)}</span>`:""}</dd>`:""}
+        ${L.metric?`<dt>${esc(L.metric)}（累計）</dt><dd>${oku(L.cur)}${L.yoy!=null?` <span class="${cls(L.yoy)}">${p0(L.yoy)}</span>`:""}</dd>`:""}
+        ${L.fc!=null?`<dt>${L.q===4?"今期の会社予想":"通期の会社予想"}</dt><dd>${oku(L.fc)}</dd>`:""}
+        ${L.progress!=null?`<dt>進み具合</dt><dd>${(L.progress*100).toFixed(0)}%（目安 ${(L.std*100).toFixed(0)}%）</dd>`:""}
+        ${L.react?`<dt>翌日の株価（${md2(L.react.day)}）</dt><dd><span class="${cls(L.react.ret)}">${rt(L.react.ret)}</span>・TOPIX比 <span class="${cls(L.react.vs)}">${rt(L.react.vs)}</span></dd>`:""}
+      </dl>`;
+      if(L.why&&L.why.length)h+=`<ul class="ewhy">${L.why.map(w=>`<li>${esc(w)}</li>`).join("")}</ul>`;
+      h+=`<div class="small">評価は会社の数字だけで付けた目安です（前年同期比・会社予想に対する進み具合・業績予想の修正）。市場の予想とは比べていません。</div>`;
+    }
+  }
+  if(I.revisions&&I.revisions.length){
+    h+=`<h4>業績予想の修正</h4><div>`+I.revisions.map(r=>`<div class="rev">
+      <div><b class="${r.dir==="上方"?"up":r.dir==="下方"?"down":""}">${esc(r.dir==="不明"?"修正":r.dir+"修正")}</b> ${md2(r.date)}${r.span?"・"+esc(r.span):""}${r.metric&&r.prev!=null&&r.cur!=null?`・${esc(r.metric)} ${oku(r.prev)} → ${oku(r.cur)}${r.chg!=null?`（${rt(r.chg)}）`:""}`:""}</div>
+      <div class="small">${r.url?`<a href="${esc(r.url)}">${esc(r.title)}</a>`:esc(r.title)}${r.react?`・翌日 TOPIX比 <span class="${cls(r.react.vs)}">${rt(r.react.vs)}</span>`:""}</div></div>`).join("")+`</div>`;
+  }
+  if(I.notes&&I.notes.length)h+=`<h4>配当</h4>`+I.notes.map(n=>`<div class="small">${md2(n.date)} ${n.url?`<a href="${esc(n.url)}">${esc(n.title)}</a>`:esc(n.title)}</div>`).join("");
+  return h;
+}
+const SPN={d5:"5日",m1:"1か月",y1:"1年"};
+function fillX(){
+  document.querySelectorAll(".xbox[data-x]").forEach(box=>{
+    const code=box.dataset.x, lim=+box.dataset.lim||0;
+    box.innerHTML=`<div class="xhead"><div class="xseg" role="group" aria-label="期間">${Object.entries(SPN).map(([k,v])=>`<button type="button" data-xs="${k}" aria-pressed="${xspan===k}">${v}</button>`).join("")}</div><span class="small n xchg"></span></div>
+      <div class="chart"></div>
+      <div class="xlinks"><a href="https://finance.yahoo.co.jp/quote/${encodeURIComponent(code)}.T/chart">Yahoo!ファイナンスのチャート</a><a href="https://kabutan.jp/stock/chart?code=${encodeURIComponent(code)}">株探のチャート</a><a href="https://kabutan.jp/stock/finance?code=${encodeURIComponent(code)}">株探の決算</a></div>
+      <div style="display:grid;gap:8px">${earnHTML(code)}</div>`;
+    const draw=()=>{const pts=xpts(code,xspan);drawChart(box.querySelector(".chart"),pts,lim,code+":"+xspan);
+      box.querySelectorAll("[data-xs]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.xs===xspan));
+      box.querySelector(".xchg").innerHTML=pts.length>1?`${SPN[xspan]}で <span class="${cls(pts.at(-1)[1]-pts[0][1])}">${rt(pts.at(-1)[1]/pts[0][1]-1)}</span>`:""};
+    box.querySelectorAll("[data-xs]").forEach(b=>b.onclick=()=>{xspan=b.dataset.xs;try{localStorage.setItem("nd_xspan",xspan)}catch{};fillX()});
+    draw();
+  });
+}
+const HSYS=["BNF式","押し目","勢い","勢いB","米国の勢い","高配当30","清原式","長期（NISA）","その他"];
+let tab="cand", hsys="すべて";
+try{tab=localStorage.getItem("nd_tab")||"cand";hsys=localStorage.getItem("nd_hsys")||"すべて"}catch{}
+const man=v=>v==null||isNaN(v)?"—":(v>0?"+":v<0?"−":"")+Math.abs(Math.round(v)).toLocaleString("ja-JP")+"円";
+// 押し目・BNF式の持ち株：いつ売るか（src/sell_plan.py）
+function sellLine(r){const S=r.sell;if(!S)return "";
+  return `<div class="why sellp ${S.state==="sell"?"now":""}">${S.state==="sell"?"🔴 ":"🔺 "}${esc(S.when)}<br>⏱ ${esc(S.limitText)}${S.signalGuess?"（合図の日は目安）":""}</div>`}
+function hdet(r){
+  const sh=+r.shares||0, c=+r.cost||0;
+  const a=[["システム",esc(r.sys||"")],["株数",sh?sh.toLocaleString("ja-JP")+"株":"登録なし"],["取得値",c?yen(c):"登録なし"]];
+  if(r.buyDate)a.push(["取得日",esc(r.buyDate)]);
+  if(r.sell){const S=r.sell;a.push(["売りの決まり",esc(S.rule)],["売りの値段（次の終値）",`${yen(S.px)}以上（終値から${pc(S.px_pct)}）${S.gain_at_px!=null?`<br>売れたら取得値から${pc(S.gain_at_px)}`:""}`],["期限",`${esc(S.limitSell.slice(5).replace("-","/"))}の寄りで売る（残り${S.left}営業日）`],["合図の日",esc(S.signal)+(S.signalGuess?"（目安）":"")])}
+  if(c){a.push(["終値での含み損益",`${pc(r.c_close)}（${man(sh*(r.close-c))}）`],["寄りの予想での含み損益",`${pc(r.c_p)}（${man(sh*(r.close*(1+r.p/100)-c))}）`],
+    ["高値の目安（半々）の時",`取得値から${pc(r.c_h_med)}`],["高値の目安（4回に1回）の時",`取得値から${pc(r.c_h_q75)}`],["安値の目安（半々）の時",`取得値から${pc(r.c_l_med)}`],["安値の目安（4回に1回）の時",`取得値から${pc(r.c_l_q25)}`]);}
+  return `<dl class="det">${a.map(([k,v])=>`<dt>${k}</dt><dd class="n">${v}</dd>`).join("")}</dl>`+det(r);
+}
+function hrow(r,i){
+  if(r.err)return `<div class="row"><div><div class="nm">${esc(r.name||r.code)}</div><div class="cd">${esc(r.code)}</div></div><div class="r s mute" style="grid-column:2/-1">${esc(r.err)}</div></div>`;
+  const id="h"+i+r.code, isOpen=open.has(id), c=+r.cost||0;
+  const tags=(r.pts&&Math.abs(r.pts.own)>=3?`<span class="tag warn">PTS</span>`:"")+(hsys==="すべて"?`<span class="tag">${esc(r.sys)}</span>`:"");
+  return `<button class="row" type="button" data-id="${esc(id)}" aria-expanded="${isOpen}">
+    <div><div class="nm">${esc(r.name||r.code)}</div><div class="cd">${esc(r.code)}${+r.shares?"・"+(+r.shares).toLocaleString("ja-JP")+"株":""}${tags}</div></div>
+    <div class="r"><div class="main n ${cls(r.p)}">${pc(r.p)}</div><div class="s n">${yen(Math.round(r.close*(1+r.p/100)))}</div><div class="s n">終値 ${yen(r.close)}</div></div>
+    <div class="r">${c?`<div class="main n ${cls(r.c_p)}">${pc(r.c_p)}</div><div class="s n">取得値 ${yen(c)}</div><div class="s n ${cls(r.c_p)}">${man((+r.shares||0)*(r.close*(1+r.p/100)-c))}</div>`:'<div class="s mute">取得値の登録なし</div>'}</div>
+    ${sellLine(r)}
+    ${r.flag?`<div class="flag">${esc(r.flag)}</div>`:""}
+    ${isOpen?hdet(r):""}
+  </button>`;
+}
+function sums(L){let ev=0,pnl=0,chg=0,n=0;for(const r of L){if(r.err||!+r.shares)continue;const o=r.close*(1+r.p/100);ev+=r.shares*o;chg+=r.shares*(o-r.close);if(+r.cost){pnl+=r.shares*(o-r.cost)}n++}return{ev,pnl,chg,n}}
+function renderHold(){
+  const H=(pred?.items||[]).filter(r=>r.kind==="hold");
+  $("#cHold").textContent=H.length?H.length:"";
+  const at=pred?.holdAt?`持ち株は保有一覧ページの ${esc(pred.holdAt.slice(5).replace("-","/"))} 時点の登録`:"";
+  $("#holdStamp").innerHTML=`${at}　<a class="xlink" href="./">保有一覧ページを開く ›</a>`;
+  const el=$("#hold");
+  if(!pred){return}
+  if(!H.length){el.innerHTML=`<div class="empty">${pred.partial?"この予想には入っていません。「予想を更新」を押してください。":"持ち株がありません。保有一覧ページで登録すると、次の更新から並びます。"}</div>`;$("#holdTot").innerHTML="";$("#holdChips").innerHTML="";return}
+  const order=[...HSYS,...new Set(H.map(r=>r.sys).filter(x=>!HSYS.includes(x)))].filter(s=>H.some(r=>r.sys===s));
+  if(hsys!=="すべて"&&!order.includes(hsys))hsys="すべて";
+  $("#holdChips").innerHTML=["すべて",...order].map(s=>`<button type="button" data-hsys="${esc(s)}" aria-pressed="${s===hsys}">${esc(s)} <span class="n">${s==="すべて"?H.length:H.filter(r=>r.sys===s).length}</span></button>`).join("");
+  const V=hsys==="すべて"?H:H.filter(r=>r.sys===hsys), t=sums(V);
+  $("#holdTot").innerHTML=`<div><span class="k">寄りでの評価額</span><span class="v n">${Math.round(t.ev).toLocaleString("ja-JP")}円</span><span class="t">株数の登録がある${t.n}銘柄</span></div>
+    <div><span class="k">終値から</span><span class="v n ${cls(t.chg)}">${man(t.chg)}</span><span class="t n">${t.ev?pc(t.chg/(t.ev-t.chg)*100,2):""}</span></div>
+    <div><span class="k">見込み損益</span><span class="v n ${cls(t.pnl)}">${man(t.pnl)}</span><span class="t">取得値から</span></div>`;
+  const cols=`<div class="cols"><span>銘柄（タップで詳細）</span><span>寄りの予想</span><span>取得値から</span></div>`;
+  let html="", i=0;
+  for(const s of (hsys==="すべて"?order:[hsys])){
+    const G=H.filter(r=>r.sys===s).sort((a,b)=>(a.c_p??0)-(b.c_p??0)), g=sums(G);
+    html+=`<div class="gh"><b>${esc(s)}</b><span class="r n">${G.length}銘柄・終値から <span class="${cls(g.chg)}">${man(g.chg)}</span>・見込み損益 <span class="${cls(g.pnl)}">${man(g.pnl)}</span></span></div>`+cols+G.map(r=>hrow(r,i++)).join("");
+  }
+  el.innerHTML=html;
+}
+let sub="osh";try{sub=localStorage.getItem("nd_sub")||"osh"}catch{}
+function setSub(x){sub=x;try{localStorage.setItem("nd_sub",x)}catch{}
+  document.querySelectorAll("[data-sub]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.sub===x));
+  $("#secOsh").hidden=x!=="osh";$("#secBnf").hidden=x!=="bnf";$("#secIki").hidden=x!=="iki";$("#secIkib").hidden=x!=="ikib";$("#ikiHow").hidden=x!=="iki"&&x!=="ikib";$("#candView2").hidden=tab!=="cand"||x!=="wat";}
+const toTop=()=>window.scrollTo({top:0,behavior:"smooth"});
+document.addEventListener("click",e=>{const b=e.target.closest("[data-sub]");if(b){const same=b.dataset.sub===sub;setSub(b.dataset.sub);if(same)toTop()}});
+function setTab(t){tab=t;try{localStorage.setItem("nd_tab",t)}catch{}
+  $("#holdView").hidden=t!=="hold";$("#candView").hidden=t!=="cand";setSub(sub);
+  $("#tabHold").setAttribute("aria-selected",t==="hold");$("#tabCand").setAttribute("aria-selected",t==="cand");}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-tab]");if(t){const same=t.dataset.tab===tab;setTab(t.dataset.tab);if(same)toTop();return}
+  const h=e.target.closest("[data-hsys]");if(h){if(h.dataset.hsys===hsys)toTop();hsys=h.dataset.hsys;try{localStorage.setItem("nd_hsys",hsys)}catch{};renderHold()}});
+
+function list(el,items,mode,cols,emptyText){
+  if(!items.length){el.innerHTML=`<div class="empty">${emptyText}</div>`;return}
+  el.innerHTML=`<div class="cols"><span>銘柄（タップで詳細）</span><span>寄りの予想</span><span>${cols}</span></div>`+items.map(r=>row(r,mode)).join("");
+}
+
+let lastOpen=null;
+function syncClose(){$("#closeX").hidden=!open.size||location.hash==="#log";const n=open.size;$("#closeX").textContent=n>1?`✕ 閉じる（${n}）`:"✕ 閉じる"}
+function render(){
+  queueMicrotask(fillX);queueMicrotask(syncClose);
+  head();
+  const it=pred?.items||[];
+  renderHold();
+  $("#cCand").textContent=pred?it.filter(r=>r.kind!=="hold").length||"":"";
+  if(pred){
+    const part="この予想には入っていません。「予想を更新」を押してください。";
+    const byP=(a,b)=>(b.prob??-1)-(a.prob??-1), K=k=>it.filter(r=>r.kind===k).sort(byP);
+    list($("#osh"),K("oshime"),"osh","指値に届く確率",pred.partial?part:"明日の指値はありません。");
+    list($("#oshSkip"),K("oshime_skip"),"osk","指値の目安に届く確率",pred.partial?part:"なし");
+    list($("#bnf"),K("bnf"),"bnf","指値に届く確率",pred.partial?part:"明日の買いの合図はありません。");
+    list($("#bnfSkip"),K("bnf_skip"),"bsk","指値の目安に届く確率",pred.partial?part:"なし");
+    $("#cOsh").textContent=K("oshime").length+K("oshime_skip").length||"";
+    $("#cBnf").textContent=K("bnf").length+K("bnf_skip").length||"";
+    const oa=pred.oshimeAt?`押し目の引け後の判定：${esc(pred.oshimeAt.slice(5).replace("-","/"))} の記録`:"";
+    const stale=pred.oshimeAt&&pred.oshimeAt.slice(0,10)<pred.base;
+    $("#oshInfo").innerHTML=oa+(stale?`<span class="stale">基準の終値（${esc(pred.base.slice(5).replace("-","/"))}）の引け後の判定がまだ動いていません。候補が古い可能性があります</span>`:"");
+    const B=pred.bnf||{};
+    const IK=pred.ikioi||{};
+    for(const [sid,nm] of [["iki","勢い"],["ikib","勢いB"]]){
+      const bu=it.filter(r=>r.kind===sid+"_buy"), se=it.filter(r=>r.kind===sid+"_sell"), ho=it.filter(r=>r.kind===sid+"_hold"), tm=it.filter(r=>r.kind===sid+"_temp"), inf=IK[nm];
+      list($("#"+sid+"Hold"),ho,sid+"h","安値の目安","なし");
+      if(sid==="ikib"){$("#ikibTempBox").hidden=!tm.length;list($("#ikibTemp"),tm,"ikibt","安値の目安","なし")}
+      list($("#"+sid+"Buy"),bu,sid+"b","安値の目安",pred.partial?part:"明日の朝に買う株はありません。");
+      list($("#"+sid+"Sell"),se,sid+"s","安値の目安",pred.partial?part:"明日の朝に売る株はありません。");
+      $("#c"+sid[0].toUpperCase()+sid.slice(1)).textContent=bu.length+se.length+ho.length+tm.length||"";
+      $("#"+sid+"Info").innerHTML=inf?`持ち株（記録） ${inf.held??0}/${inf.k??5}銘柄${inf.next?`・次の入れ替え：${esc(inf.next)}の引け後に判定`:""}${inf.temp?"・本番が始まるまでは暫定の5社を出しています":""}`:(pred.ikioi?"":`<span class="stale">この予想には勢いが入っていません。「予想を更新」を押してください</span>`);
+    }
+    $("#bnfInfo").innerHTML=B.error?`<span class="stale">BNF式の候補を作れませんでした</span>`:B.n!=null?`${esc(pred.base.slice(5).replace("-","/"))}の終値で合図 ${B.n}銘柄 → 指値−${B.depth}%（持ち株のAI関連株 ${B.ai_used}/${B.cap}）`:"";
+  }
+  renderReq();
+  $("#cWat").textContent=watch.length||"";
+  const got=new Map(it.filter(r=>r.kind==="watch").map(r=>[r.code,r]));
+  const el=$("#wat");
+  if(!watch.length){el.innerHTML='<div class="empty">コードを追加すると、次の更新から予想が入ります。</div>';return}
+  const rows=watch.map(w=>got.get(w.code)||{code:w.code,name:"",err:"次の更新で予想が入ります",kind:"watch"});
+  el.innerHTML=`<div class="cols"><span>銘柄（タップで詳細）</span><span>寄りの予想</span><span>安値の目安</span></div>`+rows.map(r=>r.err?row(r,"wat").replace('</div></div>',`</div></div>`).replace(/<\/div>$/,`<span class="rm" role="button" tabindex="0" data-rm="${esc(r.code)}" style="grid-column:1/-1;justify-self:start">この銘柄を外す</span></div>`):row(r,"wat")).join("");
+}
+
+document.addEventListener("click",async e=>{
+  const rm=e.target.closest("[data-rm]");
+  if(rm){e.stopPropagation();const c=rm.dataset.rm;try{await db.collection("watch").doc(c).delete()}catch(err){$("#addMsg").textContent="外せませんでした："+(err?.message||"")}return}
+  const b=e.target.closest(".row[data-id]");
+  if(b){const id=b.dataset.id;open.has(id)?open.delete(id):(open.add(id),lastOpen=id);render()}
+});
+$("#closeX").addEventListener("click",()=>{const id=lastOpen;open.clear();render();
+  const el=id&&document.querySelector(`.row[data-id="${CSS.escape(id)}"]`);
+  if(el){const r=el.getBoundingClientRect();if(r.top<120||r.bottom>innerHeight)el.scrollIntoView({block:"center"})}});
+document.addEventListener("keydown",e=>{const rm=e.target.closest?.("[data-rm]");if(rm&&(e.key==="Enter"||e.key===" ")){e.preventDefault();rm.click()}});
+
+$("#addForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const c=$("#addCode").value.trim().toUpperCase().replace(/[０-９Ａ-Ｚ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0));
+  if(!/^[0-9][0-9A-Z]{3}$/.test(c)){$("#addMsg").textContent="4けたの銘柄コードを入れてください（例 7203、285A）";return}
+  if(!db){$("#addMsg").textContent="保存先に接続できません。claude.aiにログインした状態で開いてください";return}
+  if(watch.some(w=>w.code===c)){$("#addMsg").textContent="もう入っています";return}
+  try{await db.collection("watch").doc(c).set({code:c,addedAt:new Date().toISOString()});$("#addCode").value="";$("#addMsg").textContent="追加しました。「追加した銘柄だけ更新」を押すと予想が入ります"}
+  catch(err){$("#addMsg").textContent="追加できませんでした："+(err?.message||"")}
+});
+
+const BTNS=()=>[$("#updBtn"),$("#logBtn"),$("#watBtn")];
+function renderReq(){
+  const st=$("#updState"), ws=$("#watState");
+  const running=req.status==="running"&&Date.now()-Date.parse(req.requestedAt||0)<12*60e3;
+  const word=req.what==="log"?"記録":req.what==="watch"?"追加した銘柄の更新":"更新";
+  BTNS().forEach(x=>x.disabled=running);
+  let msg="", here=req.what==="watch"?ws:st;
+  if(running){const m=Math.max(0,Math.round((Date.now()-Date.parse(req.requestedAt))/60e3));msg=`<span class="spin" aria-hidden="true"></span>${word}中（${m}分経過・ふだん${req.what==="watch"?"3〜5":"4〜6"}分）`}
+  else if(req.status==="error")msg=`<span class="stale">前回の${word}は失敗しました：${esc(req.error||"")}</span>`;
+  else if(req.status==="running")msg=`<span class="stale">前回の${word}が終わっていません。もう一度押してください</span>`;
+  const wAt=pred?(pred.watchAsOf||pred.asOf):"";
+  const wInfo=wAt?`${esc(wAt.slice(5).replace("-","/"))} 時点の予想`:"";
+  st.innerHTML=here===st&&msg?msg:"自動の更新と記録：平日の朝6:00まで・前の晩21:40ごろ";
+  ws.innerHTML=here===ws&&msg?msg:(running?`<span class="spin" aria-hidden="true"></span>${word}中`:wInfo);
+}
+setInterval(renderReq,30e3);
+async function fire(what){
+  BTNS().forEach(x=>x.disabled=true);$(what==="watch"?"#watState":"#updState").textContent="起動しています…";
+  try{
+    const mcp=await window.claude?.use?.("mcp");
+    if(!mcp)throw {code:"unavailable"};
+    await mcp.callTool("Claude Code Remote","fire_trigger",{trigger_id:what==="log"?TRIG_LOG:what==="watch"?TRIG_WAT:TRIG_UPD},{cache:false});
+    const now=new Date().toISOString();
+    try{await db.doc("meta/request").set({status:"running",what,requestedAt:now})}catch{}
+    req={status:"running",what,requestedAt:now};renderReq();
+  }catch(e){BTNS().forEach(x=>x.disabled=false);const c=e?.code||"";
+    $(what==="watch"?"#watState":"#updState").innerHTML=`<span class="stale">${c==="not_granted"||c==="consent_required"?"接続が許可されませんでした。もう一度押して「許可」を選んでください":c==="server_not_connected"||c==="server_not_found"?"Claude Code Remote の接続が必要です":"起動できませんでした（"+esc(c||e?.message||"不明")+"）。チャットで頼んでも更新できます"}</span>`}
+}
+$("#updBtn").onclick=()=>fire("update");
+$("#logBtn").onclick=()=>fire("log");
+$("#watBtn").onclick=()=>{if(!watch.length){$("#watState").textContent="先に銘柄を追加してください";return}fire("watch")};
+
+// ---- 記録と答え合わせ ----
+let runs=[], evals={}, evsum=null, selRun=null;
+const KS={"押し目の指値":0,"BNF式の候補":1,"気になる銘柄":2};
+function rate(v,target){const off=Math.abs(v-target)>=10;return `<span class="${off?"off":"ok"}">${v}%</span>`}
+function renderEval(){
+  const t=$("#evTable");
+  if(!evsum||!evsum.rows){t.innerHTML='<tbody><tr><td style="white-space:normal">まだありません。最初の答え合わせは、予想した日の夜（21:35の更新）に出ます。</td></tr></tbody>';$("#evStamp").textContent="";return}
+  $("#evStamp").textContent=`${evsum.from.slice(5).replace("-","/")}〜${evsum.to.slice(5).replace("-","/")}の${evsum.days}日分（同じ日は朝の定時の予想で数える）・${evsum.asOf.slice(5).replace("-","/")}時点`;
+  t.innerHTML=`<thead><tr><th>区分</th><th>件数</th><th class="grp">寄りの外れ</th><th>前日終値のまま</th><th class="grp">安値 半々<span class="sub">狙い50%</span></th><th>安値 4回に1回<span class="sub">狙い25%</span></th><th class="grp">高値 半々<span class="sub">狙い50%</span></th><th>高値 4回に1回<span class="sub">狙い25%</span></th></tr></thead><tbody>`+
+    evsum.rows.map(r=>`<tr><td>${esc(r["区分"])}</td><td class="n">${r["件数"]}</td><td class="n grp">${r["寄りの外れ"].toFixed(2)}%</td><td class="n mute">${r["前日終値のまま"].toFixed(2)}%</td><td class="n grp">${rate(r["安値半々"],50)}</td><td class="n">${rate(r["安値4回に1回"],25)}</td><td class="n grp">${rate(r["高値半々"],50)}</td><td class="n">${rate(r["高値4回に1回"],25)}</td></tr>`).join("")+"</tbody>";
+}
+const md=s=>s?String(s).slice(5).replace("-","/"):"";
+function renderRuns(){
+  const L=$("#runList");
+  if(!runs.length){L.innerHTML='<span class="stamp">記録はまだありません。次の定時（朝5:47・夜21:35）か「予想を記録」で入ります。</span>';$("#runTable").innerHTML="";$("#runInfo").textContent="";return}
+  if(!selRun||!runs.some(r=>r.id===selRun))selRun=runs[0].id;
+  L.innerHTML=runs.map(r=>`<button type="button" data-run="${esc(r.id)}" aria-pressed="${r.id===selRun}"><b>${md(r["記録日時"].slice(0,10))} ${esc(r["記録日時"].slice(11))}</b><br>${esc(r["種類"])}・${md(r["予想する日"])}の予想${evals[r["予想する日"]]?" ✓":""}</button>`).join("");
+  const r=runs.find(x=>x.id===selRun), ev=evals[r["予想する日"]];
+  const m=r.market||{}, mk=k=>m[k]?`${k} <b class="n ${cls(m[k].pct)}">${pc(m[k].pct,2)}</b>（${esc(m[k].at||"")}）`:"";
+  $("#runInfo").innerHTML=`<span>予想する日：<b>${md(r["予想する日"])}</b></span><span>基準：${md(r["基準の終値の日"])}の終値</span><span>${mk("日経先物")}</span><span>${mk("半導体ETF")}</span><span>${mk("ドル円")}</span>${ev?"<span>答え合わせ済み</span>":""}`;
+  const A=ev?new Map(ev.items.map(x=>[x.code,x])):new Map();
+  const cell=(yenv,pct,hit)=>`<td class="n">${hit===undefined?"":hit?'<span class="hit">● </span>':'<span class="miss">○ </span>'}${Number(yenv).toLocaleString("ja-JP",{maximumFractionDigits:1})}<span class="sub">${pc(pct)}</span></td>`;
+  const items=[...r.items].sort((a,b)=>(KS[a["区分"]]??9)-(KS[b["区分"]]??9));
+  $("#runTable").innerHTML=`<thead><tr><th>銘柄</th><th>区分</th><th>基準の終値</th><th class="grp">寄り</th>${ev?"<th>実際の寄り</th>":""}<th class="grp">高値 半々</th><th>高値 4回に1回</th>${ev?"<th>実際の高値</th>":""}<th class="grp">安値 半々</th><th>安値 4回に1回</th>${ev?"<th>実際の安値</th>":""}</tr></thead><tbody>`+
+    items.map(x=>{const a=A.get(x["コード"]);const has=!!a;
+      return `<tr><td><b>${esc(x["銘柄"])}</b><span class="sub">${esc(x["コード"])}</span></td><td class="mute" style="text-align:left">${esc(x["区分"])}</td><td class="n">${Number(x["基準の終値"]).toLocaleString("ja-JP")}</td>`+
+      `<td class="n grp ${cls(x["寄り_%"])}">${Number(x["寄り_円"]).toLocaleString("ja-JP",{maximumFractionDigits:1})}<span class="sub">${pc(x["寄り_%"])}</span></td>`+
+      (ev?`<td class="n">${has?Number(a["実際の寄り"]).toLocaleString("ja-JP")+`<span class="sub">外れ ${pc(a["寄りの外れ_%"],2)}</span>`:"—"}</td>`:"")+
+      cell(x["高値半々_円"],x["高値半々_%"],has?a["高値半々"]:undefined).replace('<td class="n">','<td class="n grp">')+cell(x["高値4回に1回_円"],x["高値4回に1回_%"],has?a["高値4回に1回"]:undefined)+
+      (ev?`<td class="n">${has?Number(a["実際の高値"]).toLocaleString("ja-JP"):"—"}</td>`:"")+
+      cell(x["安値半々_円"],x["安値半々_%"],has?a["安値半々"]:undefined).replace('<td class="n">','<td class="n grp">')+cell(x["安値4回に1回_円"],x["安値4回に1回_%"],has?a["安値4回に1回"]:undefined)+
+      (ev?`<td class="n">${has?Number(a["実際の安値"]).toLocaleString("ja-JP"):"—"}</td>`:"")+`</tr>`}).join("")+"</tbody>";
+}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-run]");if(b){selRun=b.dataset.run;renderRuns()}});
+setTab(tab);
+function route(){const lg=location.hash==="#log";$("#logView").hidden=!lg;$("#mainView").hidden=lg;if(lg){renderEval();renderRuns();window.scrollTo(0,0)}}
+window.addEventListener("hashchange",()=>{route();syncClose()});
+
+renderReq();
+(async()=>{
+  const timer=setTimeout(()=>{if(!pred)$("#stamp").textContent="保存先の応答がありません。ページを開き直してください"},10000);
+  db=await window.claude?.use?.("db").catch(()=>null);
+  if(!db){clearTimeout(timer);$("#stamp").textContent="保存先に接続できません。claude.aiにログインした状態で開いてください";return}
+  db.doc("meta/pred").onSnapshot(s=>{clearTimeout(timer);const d=s.data();if(d&&d.items){pred=d;render()}},()=>{});
+  db.collection("watch").onSnapshot(s=>{watch=s.docs.map(d=>d.data()).filter(w=>w&&w.code).sort((a,b)=>a.code.localeCompare(b.code));render()},()=>{});
+  db.doc("meta/request").onSnapshot(s=>{req=s.data()||{};renderReq()},()=>{});
+  db.collection("runs").orderBy("id","desc").limit(60).onSnapshot(s=>{runs=s.docs.map(d=>d.data()).filter(r=>r&&r.items);renderRuns()},()=>{});
+  db.collection("evals").onSnapshot(s=>{evals={};s.docs.forEach(d=>{const v=d.data();if(v&&v.date)evals[v.date]=v});renderRuns()},()=>{});
+  // 決算とチャート：1件256KBまでなので部品に分けてある（meta/xidx と meta/x0〜x7）
+  let xidx=null; const xp={};
+  const xmerge=()=>{if(!xidx)return;const P=[...Array(xidx.n).keys()].map(i=>xp[i]).filter(p=>p&&p.asOf===xidx.asOf);
+    if(!P.length)return;
+    extra={asOf:xidx.asOf,y1:{d:P[0].y1.d,c:Object.assign({},...P.map(p=>p.y1.c))},d5:{t:P[0].d5.t,c:Object.assign({},...P.map(p=>p.d5.c))},info:Object.assign({},...P.map(p=>p.info))};
+    clearTimeout(xmerge.t);xmerge.t=setTimeout(render,50)};
+  db.doc("meta/xidx").onSnapshot(s=>{xidx=s.data()||null;xmerge()},()=>{});
+  for(let i=0;i<8;i++)db.doc("meta/x"+i).onSnapshot(s=>{xp[i]=s.data()||null;xmerge()},()=>{});
+  db.doc("meta/evalsum").onSnapshot(s=>{evsum=s.data()||null;renderEval()},()=>{});
+})();
+route();
+</script>
+
+</body></html>
